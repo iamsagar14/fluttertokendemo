@@ -1,78 +1,102 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:fluttterdemowhive/model/usermodel.dart';
+import 'package:fluttterdemowhive/screens/login_screen.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../model/usermodel.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // List<User> postList = [];
-  Future<Usermodel> getPostApi() async {
-    final response = await http.get(
-      Uri.parse('http://gymdemo.ashokfitness.com/api/v1/login'),
-    );
-    var data = jsonDecode(response.body.toString());
-    if (response.statusCode == 200) {
-      return Usermodel.fromJson(data);
-    } else {
-      return Usermodel.fromJson(data);
-    }
-    //   for (Map i in data) {
-    //     postList.add(User.fromJson(i));
-    //     print(postList);
-    //   }
-    //   return postList;
-    // } else {
-    //   return postList;
-    // }
+  checkPrefsForUser() async {
+    SharedPreferences _prefs = await SharedPreferences.getInstance();
+    var sharedToken = _prefs.getString('token');
+    var apiToken = sharedToken;
+    getprofile(apiToken!);
+    print(apiToken);
+    return apiToken;
   }
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   var userdata = getPostApi();
-  // }
+  getprofile(String token) async {
+    final response = await http.get(
+        Uri.parse('http://gymdemo.ashokfitness.com/api/v1/login'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+    if (response.statusCode == 200) {
+      var data = jsonDecode(response.body);
+      print(data['result']['token'].toString());
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    // print(data);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('flutter demo'),
+        title: const Text('flutter demo'),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: FutureBuilder<Usermodel>(
-              future: getPostApi(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Text('Loading ');
-                } else {
-                  // return ListView.builder(
-                  //     itemCount: snapshot.data.toString().length,
-                  //     itemBuilder: (context, index) {
-                        return Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [],
-                            ),
-                          ),
-                        );
-                }
-    },
-            ),
-          ),
-        ],
+      body: FutureBuilder<Usermodel>(
+        future: getprofile(),
+        builder: (ctx, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  '${snapshot.error} occurred',
+                  style: TextStyle(fontSize: 18),
+                ),
+              );
+            } else if (snapshot.hasData) {
+              // Extracting data from snapshot object
+              final data = snapshot.data;
+              print(data?.result?.user?.firstName);
+              return Center(
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '${data?.result?.user?.firstName}',
+                          style: TextStyle(fontSize: 18),
+                        ),
+                        Text(
+                          '${data?.result?.user?.lastName}',
+                          style: TextStyle(fontSize: 18),
+                        ),
+                        Text(
+                          '${data?.result?.user?.username}',
+                          style: TextStyle(fontSize: 18),
+                        ),
+                      ],
+                    ),
+                    Image(
+                      image:
+                          NetworkImage('${data?.result?.user?.profilePicture}'),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+
+          return Center(
+            child: CircularProgressIndicator(),
+          );
+        },
       ),
     );
   }
